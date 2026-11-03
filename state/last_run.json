@@ -1,11 +1,11 @@
 {
   "last_run": {
-    "finished_at": "2026-11-03T20:36:56+00:00",
+    "finished_at": "2026-11-03T21:10:37+00:00",
     "dry_run": false,
     "counts": {
       "ingested": 0,
       "duplicates": 0,
-      "judged": 1,
+      "judged": 0,
       "errors": 0,
       "deferred": 0,
       "planned": 0,
