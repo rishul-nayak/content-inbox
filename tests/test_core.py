@@ -165,6 +165,8 @@ def test_parse_batch_matches_ids():
                                 {"item_id": "x:1", "timeless": 4}]})
     out = parse_batch(raw, ["x:1", "x:2", "x:3"])
     assert set(out) == {"x:1", "x:2"} and out["x:1"]["timeless"] == 4 and out["x:2"]["judged_from"] == "Post text"
+    meta = parse_batch(json.dumps({"items": [{"item_id": "x:1", "judged_from": "Metadata only", "substance": 5}]}), ["x:1"])
+    assert meta["x:1"]["judged_from"] == "Post text" and meta["x:1"]["substance"] == 5   # no metadata cap for X
 
 
 def test_parse_bad_json_raises():

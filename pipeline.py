@@ -19,7 +19,7 @@ import scoring
 import urls
 from common import (APIError, env, iso_now, setting, load_config, load_dotenv, load_state, log, now_local, pt_date,
                     redact, save_state, today_local)
-from judge import Judge, JudgeError, QuotaExhausted, build_system_prompt
+from judge import Judge, JudgeError, Overloaded, QuotaExhausted, build_system_prompt
 from notion_client import Notion, P, bullet, divider, heading, para, prop, quote, todo
 from planner import plan_day
 from sources.x import X, XFetchError
@@ -266,6 +266,16 @@ def process_youtube(run: Run, pending: list[Row], yt: YouTube, judge: Judge, usa
                         model, note = g["fallback_model"], f"(Judged by {g['fallback_model']}: main model out of quota.)"
                         continue
                     raise
+                except Overloaded:
+                    usage["video_calls"] += judge.video_calls - calls_before
+                    if model == g["video_model"]:
+                        log(f"  {model} overloaded -> watching with {g['fallback_model']} instead")
+                        model, note = g["fallback_model"], f"(Judged by {g['fallback_model']}: main model overloaded.)"
+                        continue
+                    if full:
+                        full, note = False, "(Video model overloaded; judged from metadata.)"
+                        continue
+                    raise
                 except JudgeError as e:
                     usage["video_calls"] += judge.video_calls - calls_before
                     if full:
@@ -417,7 +427,13 @@ def test_urls(cfg: dict, links: list[str]) -> None:
                 full = meta["duration_sec"] / 60 <= cfg["gemini"]["max_full_video_min"]
                 model = cfg["gemini"]["video_model"] if full else cfg["gemini"]["fallback_model"]
                 log(f"Title: {meta['title']} | {meta['channel']} | {round(meta['duration_sec']/60,1)} min | model {model}")
-                j = judge.judge_video(p.item_id, p.url, meta, model, full)
+                try:
+                    j = judge.judge_video(p.item_id, p.url, meta, model, full)
+                except (Overloaded, QuotaExhausted) as e:
+                    log(f"{model} unavailable ({type(e).__name__}) -> {cfg['gemini']['fallback_model']}")
+                    model = cfg["gemini"]["fallback_model"]
+                    j = judge.judge_video(p.item_id, p.url, meta, model, full)
+                log(f"Judged by {model}")
             elif p.platform == "X":
                 d = X().fetch(p.item_id[2:], cfg["reading_wpm"])
                 log(f"Post: {d['title']} | format {d['format']} | {d['minutes']} min | thread posts {d['thread_posts']}")

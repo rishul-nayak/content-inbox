@@ -50,6 +50,10 @@ class JudgeError(Exception):
     pass
 
 
+class Overloaded(JudgeError):
+    """Model kept answering 5xx (overloaded) after all retries."""
+
+
 # ---------------- prompt ----------------
 def build_system_prompt(cfg: dict, calibration: list[dict], existing_domains: list[str]) -> str:
     rubric = (ROOT / "rubric.md").read_text()
@@ -113,6 +117,7 @@ def parse_batch(raw: str, item_ids: list[str]) -> dict[str, dict]:
     for it in items or []:
         iid = str(it.get("item_id", "")).strip()
         if iid in item_ids and iid not in by_id:
+            it = dict(it, judged_from="Post text")   # X posts are always judged from their text
             by_id[iid] = normalise(it, iid, "Post text")
     return by_id
 
@@ -162,10 +167,12 @@ class Judge:
                         time.sleep(30 * (attempt + 1))   # per-minute limit: wait it out
                         continue
                     raise QuotaExhausted(msg)
-                if code >= 500 and attempt < self.retries:
-                    last = JudgeError(f"{code}: {msg}")
-                    time.sleep(min(2 ** attempt * 3, 30))
-                    continue
+                if code >= 500:
+                    last = Overloaded(f"{code}: {msg}")
+                    if attempt < self.retries:
+                        time.sleep(min(2 ** attempt * 5, 40))
+                        continue
+                    raise last
                 raise JudgeError(f"{code}: {msg}")
         raise last or JudgeError("unknown error")
 

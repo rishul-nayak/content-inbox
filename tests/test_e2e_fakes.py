@@ -168,3 +168,29 @@ def test_digest_builds():
     text = json.dumps(blocks, ensure_ascii=False)
     assert title.startswith("Week of ") and "Gem A" in text and "Old C" in text and "Agreement: 0/1" in text
     assert "Judge too generous: 1" in text and "note" in text
+
+
+def test_overload_fallback_watches_with_lite():
+    from google.genai import errors as ge
+    run = pipeline.Run(CFG, dry=False)
+    run.notion, run.ds_id = FakeNotion(), "ds"
+    rows = []
+    pipeline.ingest_youtube(run, rows, FakeYT(), "PL")
+    judge = Judge("fake", CFG, build_system_prompt(CFG, [], []), retries=0)
+    fm = FakeModels()
+    real = fm.generate_content
+
+    def gen(model, contents, config):
+        if model == "gemini-3.8-flash":
+            raise ge.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
+        return real(model, contents, config)
+    fm.generate_content = gen
+    judge.client = type("C", (), {"models": fm})()
+    usage = {"pt_date": "x", "video_calls": 0, "youtube_minutes": 0}
+    pipeline.process_youtube(run, pipeline.load_rows(run), FakeYT(), judge, usage)
+    rows = {r.item_id: r for r in pipeline.load_rows(run)}
+    short = rows["yt:3kRB2TXewus"]
+    props = run.notion.pages[short.id]["properties"]
+    assert short.pipeline == "Ready"
+    assert props["Judged From"]["select"]["name"] == "Full video"          # still watched, by Flash-Lite
+    assert "overloaded" in props["Why"]["rich_text"][0]["plain_text"]
