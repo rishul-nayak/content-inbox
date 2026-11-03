@@ -60,7 +60,7 @@ jobs:
           esac
 
       - name: Commit run state (keeps quota counters + repo activity)
-        if: ${{ (inputs.mode || 'normal') == 'normal' }}
+        if: ${{ (inputs.mode || 'normal') != 'dry-run' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

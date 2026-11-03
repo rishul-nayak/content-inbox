@@ -220,3 +220,10 @@ def test_x_parse_article():
     st["article"] = {"title": "Pricing 101", "preview_text": "p", "content": {"blocks": [{"text": "Body one"}, {"text": "Body two"}]}}
     d = xsrc.parse({"code": 200, "status": st, "thread": None}, "1")
     assert d["format"] == "Article" and "Body two" in d["text"] and "Pricing 101" in d["title"]
+
+
+def test_planner_weekend_long_item_over_budget():
+    cands = [it("pod", "P1", t=146), it("short", "P2", t=10)]
+    assert plan_day(cands, [], 120, CFG, "Wed") == ["short"]          # weekday: never over budget
+    assert plan_day(cands, [], 120, CFG, "Sat") == ["pod"]            # weekend: one long item may go over
+    assert plan_day([it("a", t=50), it("b", t=60)], [], 120, CFG, "Sat") == ["a"]   # still max one long item

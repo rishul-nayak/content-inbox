@@ -401,7 +401,7 @@ def plan_today(run: Run, rows: list[Row], today: str) -> None:
              and scoring.plain_verdict(r.verdict) != "Skip"]
     weekday = now_local(cfg["timezone"]).strftime("%a")
     budget = cfg["planner"]["budget_min"].get(weekday, 60)
-    chosen = plan_day(cands, already, budget, cfg)
+    chosen = plan_day(cands, already, budget, cfg, weekday)
     for pid in chosen:
         run.write(pid, {"Planned For": P.date(today)}, label=f"plan {pid}")
     run.counts["planned"] = len(chosen)
@@ -431,6 +431,20 @@ def existing_domains(rows: list[Row]) -> list[str]:
 # ---------------------------------------------------------------- test mode
 def test_urls(cfg: dict, links: list[str]) -> None:
     judge = Judge(env("GEMINI_API_KEY"), cfg, build_system_prompt(cfg, [], []), cfg["limits"]["max_retries"])
+    try:
+        _test_urls(cfg, links, judge)
+    finally:  # test calls count toward the same daily free quota
+        state = load_state()
+        usage = state.get("usage", {})
+        if usage.get("pt_date") != pt_date():
+            usage = {"pt_date": pt_date(), "video_calls": 0, "youtube_minutes": 0, "video_model_exhausted": False}
+        usage["video_calls"] = usage.get("video_calls", 0) + judge.video_calls
+        state["usage"] = usage
+        save_state(state)
+        log(f"Video-model calls this test: {judge.video_calls} (today: {usage['video_calls']})")
+
+
+def _test_urls(cfg: dict, links: list[str], judge: Judge) -> None:
     for link in links:
         p = urls.parse(urls.extract_first_url(link) or link)
         log(f"\n=== {p.item_id} ({p.platform}) {p.url}")

@@ -6,7 +6,7 @@ from scoring import PRIORITY_RANK
 DEFAULT_MIN = 10  # if an item has no time estimate
 
 
-def plan_day(candidates: list[dict], already: list[dict], budget: int, cfg: dict) -> list[str]:
+def plan_day(candidates: list[dict], already: list[dict], budget: int, cfg: dict, weekday: str = "") -> list[str]:
     """
     candidates / already: dicts with keys id, priority, score, time, value_type.
     `already` = undone items already planned for today (kept; they use up budget).
@@ -14,6 +14,7 @@ def plan_day(candidates: list[dict], already: list[dict], budget: int, cfg: dict
     """
     pc = cfg["planner"]
     long_min, max_long = pc["long_item_min"], pc["max_long_items_per_day"]
+    over_ok = weekday in (pc.get("long_item_over_budget_days") or [])
 
     def t(it):
         return it.get("time") or DEFAULT_MIN
@@ -32,7 +33,7 @@ def plan_day(candidates: list[dict], already: list[dict], budget: int, cfg: dict
         is_long = t(it) > long_min
         if is_long and longs >= max_long:
             return False
-        if used + t(it) > budget:
+        if used + t(it) > budget and not (is_long and over_ok and used < budget):
             return False
         chosen.append(it["id"])
         used += t(it)
