@@ -41,6 +41,14 @@ def env(name: str, required: bool = True) -> str | None:
     return v or None
 
 
+def setting(name: str, cfg: dict) -> str:
+    """Env var if set, else config.yaml ids.<name>. Exits with a clear message if neither."""
+    v = (os.environ.get(name, "").strip() or str((cfg.get("ids") or {}).get(name) or "").strip())
+    if not v:
+        sys.exit(f"Missing setting: {name} (set it in config.yaml under ids:, or as a GitHub secret)")
+    return v
+
+
 def redact(text: str) -> str:
     """Remove any secret value that slipped into a message."""
     text = str(text)

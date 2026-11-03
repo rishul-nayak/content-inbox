@@ -56,6 +56,7 @@ Edit on github.com (open the file → ✏️ pencil → **Commit changes**). The
 1. GitHub → repo → **Actions** → click the red run → open the **Run pipeline** step. The last lines tell you what broke.
 2. Common causes:
    - `Missing environment variable / GitHub secret: X` → add that secret (Settings → Secrets and variables → Actions).
+   - `HTTP 404 … object_not_found` from Notion → the integration is not connected to **Life → Content Inbox** (••• → Connections).
    - `HTTP 401` from Notion → token is wrong, or the page is not connected to the integration (page **••• → Connections**).
    - `HTTP 404` from Notion → wrong `NOTION_DATABASE_ID`.
    - `HTTP 403` from YouTube → API key restricted to the wrong API, or the playlist is not **Public**.
@@ -86,19 +87,20 @@ Free-tier note: on Gemini's free tier, Google may use the prompts to improve its
 
 ## One-time setup
 
-### 1. Accounts and keys
+### 1. Already done for you
+- Notion database **Content Inbox** under **Life → 💼 Professional**, with all 9 views. The IDs are in `config.yaml` → `ids`.
+- This repo, with tests passing on every push.
+
+### 2. Keys (only 3 secrets)
 1. **Gemini key**: aistudio.google.com → **Get API key** → **Create API key**.
 2. **YouTube key**: console.cloud.google.com → select the same project → **APIs & Services → Library** → "YouTube Data API v3" → **Enable** → **Credentials → Create credentials → API key** → **Restrict key** → YouTube Data API v3.
-3. **Notion**: make an empty page "Content Inbox". notion.so/profile/integrations → **New integration** (Internal) → copy the secret. On the page: **••• → Connections →** add your integration. Page ID = the 32 characters at the end of the page link.
-4. **YouTube playlist**: You → Playlists → **New playlist** "Inbox", **Public**. The ID is the `list=` value in its share link.
-5. **GitHub secrets** (repo → Settings → Secrets and variables → Actions): `NOTION_TOKEN`, `NOTION_PARENT_PAGE_ID`, `GEMINI_API_KEY`, `YOUTUBE_API_KEY`, `YT_PLAYLIST_ID`.
+3. **Notion token**: notion.so/profile/integrations → **New integration** (Internal, your personal workspace) → copy the secret. Then open **Life → Content Inbox** → **••• → Connections →** add the integration.
+
+Add them in GitHub: repo → **Settings → Secrets and variables → Actions → New repository secret**: `GEMINI_API_KEY`, `YOUTUBE_API_KEY`, `NOTION_TOKEN`.
+
+**YouTube playlist**: You → Playlists → **New playlist** "Inbox", **Public**. Put its `list=` ID in `config.yaml` → `ids.YT_PLAYLIST_ID`. It is not a secret.
 
 Never paste keys into a chat. Only put them in GitHub secrets, the Shortcut on your phone, or a local `.env`.
-
-### 2. Create the Notion database
-Actions → **Setup Notion (one time)** → **Run workflow**. Open the run log and copy:
-- `NOTION_DATABASE_ID` → add it as a 6th GitHub secret.
-- `NOTION_DATA_SOURCE_ID` → you paste this into the Shortcut (step 4).
 
 ### 3. Test the judge, then go live
 1. Actions → **Content Inbox pipeline** → Run workflow → mode **test-urls**, paste a YouTube link and an X link separated by a space. The log prints the full judgement. Nothing is written.
@@ -142,7 +144,7 @@ Open **Shortcuts** → **+** → name it **Save to Inbox**.
       }
     }
     ```
-    `PASTE_DATA_SOURCE_ID` = the `NOTION_DATA_SOURCE_ID` from step 2. Use the *last* **Updated Text** (from step 7).
+    `PASTE_DATA_SOURCE_ID` = `ba2e223d-cc9b-41cf-996d-8f06d8b90ea3` (also in `config.yaml`). Use the *last* **Updated Text** (from step 7).
 11. **Get Contents of URL** → URL `https://api.notion.com/v1/pages` → tap ▸:
     - Method **POST**
     - Headers (tap *Add new header* 3 times):
@@ -170,7 +172,7 @@ Tap **Save** under a video → if it says "Saved to Watch later", tap **Change**
 
 ---
 
-## Views by hand (only if the setup run said views failed)
+## Views by hand (only if you ever rebuild the database with `setup_notion.py`)
 In the database: **+** next to the view tabs → **Table** → name it → **Filter** / **Sort**:
 - 📅 Today: Planned For *is* today · Done *unchecked* · sort Priority ↑, Time ↑
 - 📥 Inbox: Pipeline = Ready · Done unchecked · Verdict ≠ 🗑 Skip · sort Priority ↑, Saved On ↓

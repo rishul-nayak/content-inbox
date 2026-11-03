@@ -6,7 +6,7 @@ import sys
 from collections import Counter
 
 import scoring
-from common import days_ago, env, load_config, load_dotenv, log, today_local
+from common import days_ago, env, load_config, load_dotenv, log, setting, today_local
 from notion_client import Notion, bullet, heading, para
 from pipeline import Row, load_rows, Run
 
@@ -89,7 +89,7 @@ def main() -> int:
     cfg = load_config()
     run = Run(cfg, args.dry_run)
     run.notion = Notion(env("NOTION_TOKEN"))
-    run.ds_id = run.notion.data_source_id(env("NOTION_DATABASE_ID"))
+    run.ds_id = run.notion.data_source_id(setting("NOTION_DATABASE_ID", cfg))
     rows = load_rows(run)
     title, blocks = build(rows, cfg)
     if args.dry_run:
@@ -98,7 +98,7 @@ def main() -> int:
             typ = blk["type"]
             log("   ", typ, "".join(x["text"]["content"] for x in blk[typ].get("rich_text", [])))
         return 0
-    page = run.notion.create_child_page(env("NOTION_PARENT_PAGE_ID"), title, blocks)
+    page = run.notion.create_child_page(setting("NOTION_PARENT_PAGE_ID", cfg), title, blocks)
     log(f"Created digest page: {page.get('url')}")
     return 0
 

@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import traceback
 from dataclasses import dataclass, field
 
 import scoring
 import urls
-from common import (APIError, env, iso_now, load_config, load_dotenv, load_state, log, now_local, pt_date,
+from common import (APIError, env, iso_now, setting, load_config, load_dotenv, load_state, log, now_local, pt_date,
                     redact, save_state, today_local)
 from judge import Judge, JudgeError, QuotaExhausted, build_system_prompt
 from notion_client import Notion, P, bullet, divider, heading, para, prop, quote, todo
@@ -379,17 +380,6 @@ def plan_today(run: Run, rows: list[Row], today: str) -> None:
     run.counts["planned"] = len(chosen)
     log(f"Planned {len(chosen)} new items for {today} (budget {budget} min, {len(already)} already planned)")
 
-    # Point the "📅 Today" view at today's date (views can't say "today" on their own).
-    if run.dry or not run.db_id:
-        return
-    try:
-        for v in run.notion.list_views(run.db_id):
-            if v.get("name", "").endswith("Today"):
-                run.notion.update_view(v["id"], filter={"and": [
-                    {"property": "Planned For", "date": {"equals": today}},
-                    {"property": "Done", "checkbox": {"equals": False}}]})
-    except Exception as e:
-        log(f"  (could not update Today view: {str(e)[:150]})")
 
 
 def calibration_examples(rows: list[Row], n: int) -> list[dict]:
@@ -462,7 +452,7 @@ def main() -> int:
     today = today_local(tz)
     retries = cfg["limits"]["max_retries"]
     run.notion = Notion(env("NOTION_TOKEN"), retries)
-    run.db_id = env("NOTION_DATABASE_ID")
+    run.db_id = setting("NOTION_DATABASE_ID", cfg)
     run.ds_id = run.notion.data_source_id(run.db_id)
 
     state = load_state()
@@ -475,8 +465,12 @@ def main() -> int:
     log(f"Notion rows: {len(rows)}")
 
     # 1. Ingest
+    playlist = (os.environ.get("YT_PLAYLIST_ID", "").strip() or str(cfg.get("ids", {}).get("YT_PLAYLIST_ID") or "").strip())
     try:
-        ingest_youtube(run, rows, YouTube(env("YOUTUBE_API_KEY"), retries), env("YT_PLAYLIST_ID"))
+        if playlist:
+            ingest_youtube(run, rows, YouTube(env("YOUTUBE_API_KEY"), retries), playlist)
+        else:
+            log("No YT_PLAYLIST_ID set in config.yaml: skipping YouTube playlist")
     except Exception as e:
         run.errors.append(f"YouTube ingest: {redact(e)}")
         log(f"YouTube ingest failed: {redact(e)}")

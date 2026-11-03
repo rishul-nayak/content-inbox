@@ -9,6 +9,13 @@ focus_areas:
 
 timezone: "Asia/Kolkata"
 
+# ---- Where things live (IDs, not secrets). Env vars of the same name override these. ----
+ids:
+  NOTION_DATABASE_ID: "06766ca0db7c4fcba1d0dc77bea936ec"          # Life → Professional → Content Inbox
+  NOTION_DATA_SOURCE_ID: "ba2e223d-cc9b-41cf-996d-8f06d8b90ea3"   # paste this into the iPhone Shortcut
+  NOTION_PARENT_PAGE_ID: "40d943f7e3a8814fa71ae06cf623aeb0"       # weekly digests go under this page
+  YT_PLAYLIST_ID: ""                                              # your public "Inbox" playlist (list=...)
+
 # ---- Daily checklist ----
 planner:
   # Minutes per day, by weekday (Mon..Sun). Change these to change your daily budget.

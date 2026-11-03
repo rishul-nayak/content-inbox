@@ -127,7 +127,6 @@ def test_full_run(monkeypatch):
     pipeline.plan_today(run, rows, "2026-11-03")
     planned = [r for r in pipeline.load_rows(run) if r.planned_for == "2026-11-03"]
     assert planned and sum(r.time for r in planned) <= 120
-    assert run.notion.view_update["filter"]["and"][0]["date"]["equals"] == "2026-11-03"
 
 
 def test_quota_fallback(monkeypatch):
