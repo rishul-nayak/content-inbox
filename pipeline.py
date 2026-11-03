@@ -245,7 +245,8 @@ def process_youtube(run: Run, pending: list[Row], yt: YouTube, judge: Judge, usa
                 mark_deferred(run, r, "daily free YouTube-minutes limit reached")
                 continue
 
-            flash_ok = usage["video_calls"] < g["video_model_daily_cap"] and not usage.get("video_model_exhausted")
+            flash_ok = (usage["video_calls"] < g["video_model_daily_cap"] and not usage.get("video_model_exhausted")
+                        and not usage.get("_overloaded_this_run"))
             full = not too_long
             model = g["video_model"] if (flash_ok and full) else g["fallback_model"]
             note = "" if model == g["video_model"] else f"(Judged by {model}.)"
@@ -269,7 +270,8 @@ def process_youtube(run: Run, pending: list[Row], yt: YouTube, judge: Judge, usa
                 except Overloaded:
                     usage["video_calls"] += judge.video_calls - calls_before
                     if model == g["video_model"]:
-                        log(f"  {model} overloaded -> watching with {g['fallback_model']} instead")
+                        log(f"  {model} overloaded -> watching with {g['fallback_model']} instead (for the rest of this run)")
+                        usage["_overloaded_this_run"] = True
                         model, note = g["fallback_model"], f"(Judged by {g['fallback_model']}: main model overloaded.)"
                         continue
                     if full:
@@ -520,6 +522,7 @@ def main() -> int:
     summary = {"finished_at": iso_now(), "dry_run": run.dry, "counts": run.counts, "errors": run.errors[:50]}
     log("Summary: " + json.dumps(summary["counts"]))
     if not run.dry:
+        usage.pop("_overloaded_this_run", None)
         state.update({"last_run": summary, "usage": usage})
         save_state(state)
     return 0

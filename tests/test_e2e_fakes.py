@@ -194,3 +194,4 @@ def test_overload_fallback_watches_with_lite():
     assert short.pipeline == "Ready"
     assert props["Judged From"]["select"]["name"] == "Full video"          # still watched, by Flash-Lite
     assert "overloaded" in props["Why"]["rich_text"][0]["plain_text"]
+    assert usage["_overloaded_this_run"] and usage["video_calls"] == 1   # Flash tried once, then skipped
