@@ -33,7 +33,9 @@ gemini:
   video_model_daily_cap: 18                # free tier is ~20 requests/day; keep 2 spare for manual tests
   youtube_minutes_daily_cap: 450           # free tier allows 8 h (480 min) of YouTube video per day
   video_fps: 0.2                           # 1 frame every 5 s. Keeps long videos under the 250k tokens/min free limit
-  max_full_video_min: 85                   # longer videos are judged from title/description/chapters only
+  max_full_video_min: 85                   # longer videos are watched in "agentic" mode (jumps to the parts it needs)
+  max_agentic_video_min: 240               # longer than this: judged from title/description/chapters only
+  busy_retries: 3                          # if Gemini is busy, retry on this many later runs before using metadata
   thinking_level: "low"                    # 3.8 Flash does not accept "minimal"
   x_batch_size: 10
 

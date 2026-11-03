@@ -43,7 +43,7 @@ All cut-offs live in [`config.yaml`](config.yaml); the judge's instructions live
 - **YouTube Data API** and **FxTwitter** fetch video details and full X threads: **under 10 of 10,000** units a day, and no key for X
 - **Notion API `2026-03-11`** stores everything on the free plan
 
-When the main model's daily quota runs out, videos switch to the backup model; nothing is lost. Videos over 85 minutes are judged from their title, description and chapters. Free-tier limits as of November 2026; Google can change them.
+When the main model's daily quota runs out, videos switch to the backup model; nothing is lost. Videos over 85 minutes are watched in agentic mode (the model jumps to the parts it needs); over 4 hours they are judged from title, description and chapters. If Gemini is busy, the item waits for the next run (up to 3 tries). Free-tier limits as of November 2026; Google can change them.
 
 ## Run it yourself
 
@@ -53,4 +53,4 @@ When the main model's daily quota runs out, videos switch to the backup model; n
 
 Full setup, the iPhone Shortcut, and what to do when a run fails: [docs/SETUP.md](docs/SETUP.md).
 
-Code: **`pipeline.py`** collects, judges and plans · **`judge.py`** talks to Gemini · **`scoring.py`** and **`planner.py`** hold the rules · **`digest.py`** writes the Sunday page · **`tests/`** has 34 tests that run on every push.
+Code: **`pipeline.py`** collects, judges and plans · **`judge.py`** talks to Gemini · **`scoring.py`** and **`planner.py`** hold the rules · **`digest.py`** writes the Sunday page · **`tests/`** has 37 tests that run on every push.

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -51,6 +52,7 @@ class Row:
     my_rating: str | None = None
     takeaway: str | None = None
     author: str | None = None
+    error: str | None = None
     domains: list = field(default_factory=list)
     created: str = ""
     edited: str = ""
@@ -64,7 +66,7 @@ class Row:
             priority=prop(pg, "Priority"), quality=prop(pg, "Quality"), relevance=prop(pg, "Relevance"),
             actionability=prop(pg, "Actionability"), value_type=prop(pg, "Value Type"), time=prop(pg, "Time (min)"),
             planned_for=prop(pg, "Planned For"), my_rating=prop(pg, "My Rating"), takeaway=prop(pg, "My Takeaway"),
-            author=prop(pg, "Author"), domains=prop(pg, "Domain") or [],
+            author=prop(pg, "Author"), error=prop(pg, "Error"), domains=prop(pg, "Domain") or [],
             created=pg.get("created_time", ""), edited=pg.get("last_edited_time", ""),
         )
 
@@ -239,28 +241,25 @@ def process_youtube(run: Run, pending: list[Row], yt: YouTube, judge: Judge, usa
             is_short = meta["duration_sec"] <= 180 and (urls.parse(r.url or "").is_short or yt.is_short(vid))
             fmt = "Short" if is_short else "Video"
 
-            too_long = dur_min > g["max_full_video_min"]
-            yt_budget_ok = usage["youtube_minutes"] + dur_min <= g["youtube_minutes_daily_cap"]
-            if not too_long and not yt_budget_ok:
+            long_video = dur_min > g["max_full_video_min"]
+            mode = "static" if not long_video else ("agentic" if dur_min <= g.get("max_agentic_video_min", 240) else "metadata")
+            if mode != "metadata" and usage["youtube_minutes"] + dur_min > g["youtube_minutes_daily_cap"]:
                 mark_deferred(run, r, "daily free YouTube-minutes limit reached")
                 continue
-
             flash_ok = (usage["video_calls"] < g["video_model_daily_cap"] and not usage.get("video_model_exhausted")
                         and not usage.get("_overloaded_this_run"))
-            full = not too_long
-            model = g["video_model"] if (flash_ok and full) else g["fallback_model"]
+            model = g["video_model"] if (flash_ok and mode == "static") else g["fallback_model"]
             note = "" if model == g["video_model"] else f"(Judged by {model}.)"
+            busy_tries = busy_count(r.error)
 
             j = None
             while j is None:
+                calls_before = judge.video_calls
                 try:
-                    calls_before = judge.video_calls
-                    j = judge.judge_video(r.item_id, r.url, meta, model, full)
-                    usage["video_calls"] += judge.video_calls - calls_before
-                    if full:
+                    j = judge.judge_video(r.item_id, r.url, meta, model, mode)
+                    if mode != "metadata":
                         usage["youtube_minutes"] += round(dur_min, 1)
                 except QuotaExhausted:
-                    usage["video_calls"] += judge.video_calls - calls_before
                     if model == g["video_model"]:
                         log(f"  {model} daily quota used up -> falling back to {g['fallback_model']}")
                         usage["video_model_exhausted"] = True
@@ -268,24 +267,24 @@ def process_youtube(run: Run, pending: list[Row], yt: YouTube, judge: Judge, usa
                         continue
                     raise
                 except Overloaded:
-                    usage["video_calls"] += judge.video_calls - calls_before
                     if model == g["video_model"]:
                         log(f"  {model} overloaded -> watching with {g['fallback_model']} instead (for the rest of this run)")
                         usage["_overloaded_this_run"] = True
                         model, note = g["fallback_model"], f"(Judged by {g['fallback_model']}: main model overloaded.)"
                         continue
-                    if full:
-                        full, note = False, "(Video model overloaded; judged from metadata.)"
-                        continue
-                    raise
+                    if mode != "metadata" and busy_tries + 1 < g.get("busy_retries", 3):
+                        raise Busy(busy_tries + 1)
+                    log("  still busy after several runs -> metadata only")
+                    mode, note = "metadata", "(Gemini was busy on several runs; judged from metadata.)"
                 except JudgeError as e:
-                    usage["video_calls"] += judge.video_calls - calls_before
-                    if full:
-                        log(f"  full-video judge failed ({str(e)[:120]}) -> metadata only")
-                        full, model = False, g["fallback_model"]
+                    if mode != "metadata":
+                        log(f"  video judge failed ({str(e)[:120]}) -> metadata only")
+                        mode, model = "metadata", g["fallback_model"]
                         note = "(Video could not be processed; judged from metadata.)"
                         continue
                     raise
+                finally:
+                    usage["video_calls"] += judge.video_calls - calls_before
 
             res = scoring.compute(j, run.cfg)
             extra = {"Name": P.title(meta["title"] or r.name), "Author": P.text(meta["channel"]),
@@ -294,6 +293,8 @@ def process_youtube(run: Run, pending: list[Row], yt: YouTube, judge: Judge, usa
             run.write(r.id, result_props(j, res, extra, note), body_blocks(j, res, model), label=r.item_id)
             run.counts["judged"] += 1
             log(f"  judged {r.item_id}: {res.verdict} {res.priority} q={res.quality} ({model}, {j['judged_from']})")
+        except Busy as b:
+            mark_deferred(run, r, f"Gemini busy (try {b.tries})", force=True)
         except QuotaExhausted as e:
             mark_deferred(run, r, f"Gemini quota: {str(e)[:100]}")
         except Exception as e:  # one bad item never stops the run
@@ -355,10 +356,21 @@ def process_other(run: Run, pending: list[Row]) -> None:
                   label=r.item_id)
 
 
-def mark_deferred(run: Run, r: Row, reason: str) -> None:
+class Busy(Exception):
+    def __init__(self, tries: int):
+        super().__init__(f"busy try {tries}")
+        self.tries = tries
+
+
+def busy_count(error_text: str | None) -> int:
+    m = re.search(r"Gemini busy \(try (\d+)\)", error_text or "")
+    return int(m.group(1)) if m else 0
+
+
+def mark_deferred(run: Run, r: Row, reason: str, force: bool = False) -> None:
     run.counts["deferred"] += 1
     log(f"  deferred {r.item_id}: {reason}")
-    if r.pipeline != "Skipped-by-limit":
+    if r.pipeline != "Skipped-by-limit" or force:
         run.write(r.id, {"Pipeline": P.select("Skipped-by-limit"), "Error": P.text(f"Waiting: {reason}")}, label=r.item_id)
 
 
@@ -426,15 +438,17 @@ def test_urls(cfg: dict, links: list[str]) -> None:
                 if not meta:
                     log("Video not found / not public")
                     continue
-                full = meta["duration_sec"] / 60 <= cfg["gemini"]["max_full_video_min"]
-                model = cfg["gemini"]["video_model"] if full else cfg["gemini"]["fallback_model"]
-                log(f"Title: {meta['title']} | {meta['channel']} | {round(meta['duration_sec']/60,1)} min | model {model}")
+                g = cfg["gemini"]
+                dur_min = meta["duration_sec"] / 60
+                mode = "static" if dur_min <= g["max_full_video_min"] else ("agentic" if dur_min <= g.get("max_agentic_video_min", 240) else "metadata")
+                model = g["video_model"] if mode == "static" else g["fallback_model"]
+                log(f"Title: {meta['title']} | {meta['channel']} | {round(dur_min,1)} min | mode {mode} | model {model}")
                 try:
-                    j = judge.judge_video(p.item_id, p.url, meta, model, full)
+                    j = judge.judge_video(p.item_id, p.url, meta, model, mode)
                 except (Overloaded, QuotaExhausted) as e:
-                    log(f"{model} unavailable ({type(e).__name__}) -> {cfg['gemini']['fallback_model']}")
-                    model = cfg["gemini"]["fallback_model"]
-                    j = judge.judge_video(p.item_id, p.url, meta, model, full)
+                    log(f"{model} unavailable ({type(e).__name__}) -> {g['fallback_model']}")
+                    model = g["fallback_model"]
+                    j = judge.judge_video(p.item_id, p.url, meta, model, mode)
                 log(f"Judged by {model}")
             elif p.platform == "X":
                 d = X().fetch(p.item_id[2:], cfg["reading_wpm"])

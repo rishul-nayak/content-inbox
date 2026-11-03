@@ -70,10 +70,11 @@ class FakeResp:
 
 
 class FakeModels:
-    def __init__(self): self.calls = []
+    def __init__(self): self.calls, self.contents_seen = [], []
 
     def generate_content(self, model, contents, config):
         self.calls.append((model, config))
+        self.contents_seen.append(contents)
         item = {"title": "t", "format": "Video", "timeless": 5, "substance": 5, "credibility": 4, "relevance": 5,
                 "actionability": 4, "red_flags": [], "verdict_suggestion": "Gem", "value_type": "Action",
                 "domains": ["Pricing"], "summary": "s", "why": "w", "takeaways": ["a", "b", "c"],
@@ -116,11 +117,12 @@ def test_full_run(monkeypatch):
     assert set(by) == {"yt:3kRB2TXewus", "yt:LONGLONGLON", "x:2117251353168752764"}
     assert all(r.pipeline == "Ready" for r in rows), run.errors
     assert by["yt:3kRB2TXewus"].verdict == "💎 Gem" and by["yt:3kRB2TXewus"].time == 25
-    assert usage["video_calls"] == 1 and usage["youtube_minutes"] == 25.0
+    assert usage["video_calls"] == 1 and usage["youtube_minutes"] == 205.0   # 25 + 180 (agentic counts too)
     models = [m for m, _ in fm.calls]
-    assert models.count("gemini-3.8-flash") == 1          # 3-hour podcast went metadata-only on Flash-Lite
+    assert models.count("gemini-3.8-flash") == 1          # 3-hour podcast went to Flash-Lite in agentic mode
     long_props = run.notion.pages[by["yt:LONGLONGLON"].id]["properties"]
-    assert long_props["Judged From"]["select"]["name"] == "Metadata only"
+    assert long_props["Judged From"]["select"]["name"] == "Full video"
+    assert any(getattr(p, "media_processing", None) is not None for p in fm.contents_seen[1].parts)
     assert by["x:2117251353168752764"].platform == "X"
 
     run.counts["planned"] = 0
@@ -195,3 +197,32 @@ def test_overload_fallback_watches_with_lite():
     assert props["Judged From"]["select"]["name"] == "Full video"          # still watched, by Flash-Lite
     assert "overloaded" in props["Why"]["rich_text"][0]["plain_text"]
     assert usage["_overloaded_this_run"] and usage["video_calls"] == 1   # Flash tried once, then skipped
+
+
+def test_busy_defers_then_metadata():
+    from google.genai import errors as ge
+    run = pipeline.Run(CFG, dry=False)
+    run.notion, run.ds_id = FakeNotion(), "ds"
+    rows = []
+    pipeline.ingest_youtube(run, rows, FakeYT(), "PL")
+    judge = Judge("fake", CFG, build_system_prompt(CFG, [], []), retries=0)
+    fm = FakeModels()
+    real = fm.generate_content
+
+    def gen(model, contents, config):
+        if not isinstance(contents, str):     # every video request is "busy"; metadata requests work
+            raise ge.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
+        return real(model, contents, config)
+    fm.generate_content = gen
+    judge.client = type("C", (), {"models": fm})()
+    for attempt in range(1, 4):
+        usage = {"pt_date": "x", "video_calls": 0, "youtube_minutes": 0}
+        pend = [r for r in pipeline.load_rows(run) if r.pipeline in pipeline.PENDING]
+        pipeline.process_youtube(run, pend, FakeYT(), judge, usage)
+        rows = {r.item_id: r for r in pipeline.load_rows(run)}
+        if attempt < 3:
+            assert rows["yt:3kRB2TXewus"].pipeline == "Skipped-by-limit"
+            assert f"try {attempt}" in rows["yt:3kRB2TXewus"].error
+    assert rows["yt:3kRB2TXewus"].pipeline == "Ready"
+    props = run.notion.pages[rows["yt:3kRB2TXewus"].id]["properties"]
+    assert props["Judged From"]["select"]["name"] == "Metadata only"

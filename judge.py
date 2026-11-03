@@ -177,11 +177,16 @@ class Judge:
         raise last or JudgeError("unknown error")
 
     # ---- YouTube ----
-    def judge_video(self, item_id: str, url: str, meta: dict, model: str, full: bool) -> dict:
+    def judge_video(self, item_id: str, url: str, meta: dict, model: str, mode: str) -> dict:
+        """mode: "static" (frames + audio), "agentic" (model jumps through the video), "metadata"."""
         info = video_context(meta)
-        if full:
-            part = types.Part(file_data=types.FileData(file_uri=url),
-                              video_metadata=types.VideoMetadata(fps=self.g.get("video_fps", 0.2)))
+        if mode in ("static", "agentic"):
+            if mode == "static":
+                part = types.Part(file_data=types.FileData(file_uri=url),
+                                  video_metadata=types.VideoMetadata(fps=self.g.get("video_fps", 0.2)))
+            else:
+                part = types.Part(file_data=types.FileData(file_uri=url),
+                                  media_processing=types.MediaProcessing.AGENTIC)
             prompt = (f"Judge this YouTube video. item_id = {item_id}. You have the full video. "
                       f"judged_from must be \"Full video\".\n\n{info}")
             contents = types.Content(role="user", parts=[part, types.Part(text=prompt)])
@@ -189,8 +194,12 @@ class Judge:
             prompt = (f"Judge this YouTube video from its METADATA ONLY (the video itself was not available). "
                       f"item_id = {item_id}. judged_from must be \"Metadata only\".\n\n{info}")
             contents = prompt
-        raw = self._call(model, contents, self._config(model, ITEM_SCHEMA, media_low=full))
-        return parse_single(raw, item_id, "Full video" if full else "Metadata only")
+        watched = mode != "metadata"
+        raw = self._call(model, contents, self._config(model, ITEM_SCHEMA, media_low=watched))
+        j = parse_single(raw, item_id, "Full video" if watched else "Metadata only")
+        if watched:
+            j["judged_from"] = "Full video"   # we sent the video; don't let the model self-cap
+        return j
 
     # ---- X posts (batched) ----
     def judge_x_batch(self, posts: list[dict]) -> dict[str, dict]:
