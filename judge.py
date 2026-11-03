@@ -185,7 +185,7 @@ class Judge:
                 part = types.Part(file_data=types.FileData(file_uri=url),
                                   video_metadata=types.VideoMetadata(fps=self.g.get("video_fps", 0.2)))
             else:
-                part = types.Part(file_data=types.FileData(file_uri=url),
+                part = types.Part(file_data=types.FileData(file_uri=url, mime_type="video/mp4"),
                                   media_processing=types.MediaProcessing.AGENTIC)
             prompt = (f"Judge this YouTube video. item_id = {item_id}. You have the full video. "
                       f"judged_from must be \"Full video\".\n\n{info}")
