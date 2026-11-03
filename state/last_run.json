@@ -1,13 +1,13 @@
 {
   "last_run": {
-    "finished_at": "2026-11-03T14:31:00+00:00",
+    "finished_at": "2026-11-03T20:26:45+00:00",
     "dry_run": false,
     "counts": {
       "ingested": 2,
       "duplicates": 0,
       "judged": 3,
       "errors": 0,
-      "deferred": 1,
+      "deferred": 0,
       "planned": 1,
       "done_on": 0
     },
@@ -15,7 +15,7 @@
   },
   "usage": {
     "pt_date": "2026-11-03",
-    "video_calls": 8,
+    "video_calls": 12,
     "youtube_minutes": 14.9,
     "video_model_exhausted": false
   }
