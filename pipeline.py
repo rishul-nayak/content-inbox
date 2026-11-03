@@ -93,6 +93,9 @@ class Run:
         if props or trash is not None:
             self.notion.update_page(page_id, props, in_trash=trash)
         if children:
+            for old in self.notion.list_children(page_id):   # re-judged item: replace the old write-up
+                if old.get("type") != "child_database":
+                    self.notion.delete_block(old["id"])
             self.notion.append_children(page_id, children)
 
     def fail(self, row: Row, msg: str) -> None:

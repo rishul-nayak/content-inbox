@@ -39,6 +39,10 @@ class FakeNotion:
             self.pages[pid]["properties"][k] = _shape(k, v)
 
     def append_children(self, pid, children): self.bodies.setdefault(pid, []).extend(children)
+    def list_children(self, pid): return [{"id": f"{pid}:{i}", "type": "paragraph"} for i, _ in enumerate(self.bodies.get(pid, []))]
+    def delete_block(self, bid):
+        pid, _ = bid.rsplit(":", 1)
+        self.bodies[pid] = self.bodies[pid][:-1]
     def list_views(self, db): return [{"id": "v1", "name": "📅 Today"}]
     def update_view(self, vid, **kw): self.view_update = kw
 

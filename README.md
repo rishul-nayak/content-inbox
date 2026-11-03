@@ -53,4 +53,4 @@ When the main model's daily quota runs out, videos switch to the backup model; n
 
 Full setup, the iPhone Shortcut, and what to do when a run fails: [docs/SETUP.md](docs/SETUP.md).
 
-Code: **`pipeline.py`** collects, judges and plans · **`judge.py`** talks to Gemini · **`scoring.py`** and **`planner.py`** hold the rules · **`digest.py`** writes the Sunday page · **`tests/`** has 37 tests that run on every push.
+Code: **`pipeline.py`** collects, judges and plans · **`judge.py`** talks to Gemini · **`scoring.py`** and **`planner.py`** hold the rules · **`digest.py`** writes the Sunday page · **`tests/`** has 36 tests that run on every push.
