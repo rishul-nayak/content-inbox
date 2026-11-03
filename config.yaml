@@ -1,0 +1,61 @@
+# Content Inbox — all the knobs live here. Edit, commit, push. The next run uses them.
+
+# ---- Who the judge is judging FOR (used for the Relevance score) ----
+focus_areas:
+  - "Landing an AI Product Manager role (product sense, AI product craft, PM interviews)"
+  - "Building AI agents and automation"
+  - "Startups and operating (strategy, go-to-market, fundraising, VC)"
+  - "Networking and communication"
+
+timezone: "Asia/Kolkata"
+
+# ---- Daily checklist ----
+planner:
+  # Minutes per day, by weekday (Mon..Sun). Change these to change your daily budget.
+  budget_min: {Mon: 60, Tue: 60, Wed: 60, Thu: 60, Fri: 60, Sat: 120, Sun: 120}
+  long_item_min: 45          # an item longer than this counts as "long"
+  max_long_items_per_day: 1
+  ensure_action_item: true   # always put one "Action" item on the list if one exists
+  plan_before_hour: 12       # runs that start before this hour (IST) plan the day
+
+# ---- Gemini models (checked against Google's docs, Nov 2026) ----
+gemini:
+  video_model: "gemini-3.8-flash"          # watches the YouTube video
+  text_model: "gemini-3.5-flash-lite"      # judges X posts in batches
+  fallback_model: "gemini-3.5-flash-lite"  # used for videos when the video model is out of quota / overloaded
+  video_model_daily_cap: 18                # free tier is ~20 requests/day; keep 2 spare for manual tests
+  youtube_minutes_daily_cap: 450           # free tier allows 8 h (480 min) of YouTube video per day
+  video_fps: 0.2                           # 1 frame every 5 s. Keeps long videos under the 250k tokens/min free limit
+  max_full_video_min: 85                   # longer videos are judged from title/description/chapters only
+  thinking_level: "low"                    # 3.8 Flash does not accept "minimal"
+  x_batch_size: 10
+
+# ---- Per-run limits (items over the limit stay "New" and wait for the next run) ----
+limits:
+  max_videos_per_run: 9
+  max_x_batches_per_run: 5
+  max_retries: 3
+
+# ---- Scoring. Quality and Priority are computed in code, not by the LLM ----
+scoring:
+  weights: {quality: 0.45, relevance: 0.35, actionability: 0.20}
+  serious_red_flags: ["Selling a course", "No evidence", "Clickbait", "Outdated", "Engagement bait"]
+  verdict:
+    gem_quality: 8
+    gem_min_relevance: 3
+    solid_quality: 6
+    skim_quality: 4
+  priority:      # score is 0..1
+    p1: 0.80
+    p2: 0.65
+    p3: 0.45
+
+# ---- Calibration: past items where your "My Rating" disagreed with the judge ----
+calibration_examples: 10
+
+# ---- Reading speed for X posts ----
+reading_wpm: 230
+
+# ---- Weekly digest ----
+digest:
+  stale_after_days: 30

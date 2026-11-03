@@ -1,0 +1,28 @@
+name: Weekly digest
+
+on:
+  schedule:
+    - cron: "30 4 * * 0"   # Sunday 10:00 IST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the digest instead of creating the Notion page"
+        type: boolean
+        default: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python digest.py ${{ inputs.dry_run && '--dry-run' || '' }}
