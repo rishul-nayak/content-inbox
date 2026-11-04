@@ -1,23 +1,23 @@
 {
   "last_run": {
-    "finished_at": "2026-11-04T07:47:54+00:00",
+    "finished_at": "2026-11-04T21:27:28+00:00",
     "dry_run": false,
     "counts": {
-      "ingested": 0,
+      "ingested": 3,
       "duplicates": 0,
-      "judged": 0,
+      "judged": 4,
       "errors": 0,
       "deferred": 0,
-      "planned": 0,
+      "planned": 1,
       "done_on": 0
     },
     "errors": []
   },
   "usage": {
-    "pt_date": "2026-11-03",
-    "video_calls": 16,
-    "youtube_minutes": 229.0,
+    "pt_date": "2026-11-04",
+    "video_calls": 4,
+    "youtube_minutes": 276.7,
     "video_model_exhausted": false
   },
-  "last_plan_date": "2026-11-04"
+  "last_plan_date": "2026-11-05"
 }
