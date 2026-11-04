@@ -546,9 +546,13 @@ def main() -> int:
     # 6. Plan the day
     if not run.dry:
         rows = load_rows(run)   # fresh verdicts/priorities after judging
+    # Plan on the morning run, or on the first run of the day if GitHub delayed/skipped the morning one.
     morning = now_local(tz).hour < cfg["planner"]["plan_before_hour"]
-    if (morning or args.plan) and not args.no_plan:
+    not_planned_yet = state.get("last_plan_date") != today
+    if (morning or not_planned_yet or args.plan) and not args.no_plan:
         plan_today(run, rows, today)
+        if not run.dry:
+            state["last_plan_date"] = today
 
     summary = {"finished_at": iso_now(), "dry_run": run.dry, "counts": run.counts, "errors": run.errors[:50]}
     log("Summary: " + json.dumps(summary["counts"]))

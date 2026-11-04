@@ -24,7 +24,7 @@ planner:
   max_long_items_per_day: 1
   long_item_over_budget_days: [Sat, Sun]   # on these days the one long item may go over the budget (long podcasts)
   ensure_action_item: true   # always put one "Action" item on the list if one exists
-  plan_before_hour: 12       # runs that start before this hour (IST) plan the day
+  plan_before_hour: 12       # runs before this hour (IST) plan the day; if none ran, the first run of the day does
 
 # ---- Gemini models (checked against Google's docs, Nov 2026) ----
 gemini:
