@@ -1,0 +1,34 @@
+name: Test Agent-Reach (throwaway)
+
+# Runs only on the test branch. Checks what Agent-Reach can reach from a GitHub Actions IP, with no logins.
+on:
+  push:
+    branches: [test/agent-reach]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pipx install https://github.com/Panniantong/agent-reach/archive/main.zip
+      - run: agent-reach setup || true
+
+      - name: Live checks (no login)
+        run: |
+          for c in youtube web github reddit twitter; do
+            echo "::group::check $c"; agent-reach check $c --text || true; echo "::endgroup::"
+          done
+
+      - name: Real tasks
+        run: |
+          run() { echo "::group::$*"; timeout 120 agent-reach "$@" | head -c 2500 || true; echo; echo "::endgroup::"; }
+          run youtube search "AI product manager interview" --limit 3
+          run youtube subtitle https://www.youtube.com/watch?v=aircAruvnKk
+          run reddit search "AI product manager" --limit 3
+          run reddit subreddit ProductManagement --limit 3
+          run twitter search "AI PM" --limit 3
+          run read https://x.com/karpathy/status/1886192184808149383
+          run web read https://www.lennysnewsletter.com
