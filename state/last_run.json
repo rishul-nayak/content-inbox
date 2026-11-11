@@ -1,6 +1,6 @@
 {
   "last_run": {
-    "finished_at": "2026-11-10T21:22:46+00:00",
+    "finished_at": "2026-11-11T08:00:35+00:00",
     "dry_run": false,
     "counts": {
       "ingested": 0,
@@ -8,13 +8,13 @@
       "judged": 0,
       "errors": 0,
       "deferred": 0,
-      "planned": 1,
+      "planned": 0,
       "done_on": 0
     },
     "errors": []
   },
   "usage": {
-    "pt_date": "2026-11-10",
+    "pt_date": "2026-11-11",
     "video_calls": 0,
     "youtube_minutes": 0,
     "video_model_exhausted": false
